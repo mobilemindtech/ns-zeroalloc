@@ -1,8 +1,8 @@
 
 organization := "br.com.mobilemind"
 version      := "0.1.0-SNAPSHOT"
-scalaVersion := "3.8.4",
-scalacOptions += "-experimental",
+scalaVersion := "3.8.4"
+scalacOptions += "-experimental"
 
 
 lazy val zeroalloc = project

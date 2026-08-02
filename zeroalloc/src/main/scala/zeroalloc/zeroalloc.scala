@@ -125,6 +125,7 @@ object macros {
     import qctx.reflect.*
     val ownerSym = sym.owner
     ownerSym.fullName.startsWith("scala.scalanative.unsafe") ||
+      ownerSym.fullName.startsWith("scala.Predef") ||
       ownerSym == TypeRepr.of[Int].typeSymbol ||
       ownerSym == TypeRepr.of[Boolean].typeSymbol
   }

@@ -25,7 +25,7 @@ def processSignal(input: Int): Int = {
 
   result
 }
-
+```
 
 ---
 

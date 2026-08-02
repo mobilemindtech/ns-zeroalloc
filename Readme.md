@@ -45,7 +45,7 @@ def processSignal(input: Int): Int = {
 Add the dependency to your `build.sbt`:
 
 ```scala
-libraryDependencies += "io.github.zeroalloc" %%% "zeroalloc" % "0.1.0"
+libraryDependencies += "br.com.mobilemind.zeroalloc" %%% "zeroalloc" % "0.1.0"
 
 // Required for Scala 3 MacroAnnotations
 scalacOptions += "-experimental"

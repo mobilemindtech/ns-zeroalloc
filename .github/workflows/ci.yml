@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: sbt
+      - uses: sbt/setup-sbt@v1
+      # Snippets compiled with Scala Native + the plugin
+      - run: sbt plugin/testFull
+      # Runtime tests, compiled with the plugin and linked by Scala Native (needs clang)
+      - run: sbt tests/testFull
+
+  conformance:
+    name: IR conformance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: sbt
+      - uses: sbt/setup-sbt@v1
+      # Links the accepted methods in releaseFast mode, then checks that none of
+      # them reaches a GC allocation in the generated LLVM IR (docs/allowlist.md).
+      - run: sbt conformance/nativeLink
+      - run: |
+          python3 scripts/ir-allocs.py \
+            target/out/native0.5/scala-*/zeroalloc-conformance/native/generated \
+            '_SM\d+Conformance\$D(?!4main)'

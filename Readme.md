@@ -1,5 +1,7 @@
 # zeroalloc
 
+[![CI](https://github.com/mobilemindtech/ns-zeroalloc/actions/workflows/ci.yml/badge.svg)](https://github.com/mobilemindtech/ns-zeroalloc/actions/workflows/ci.yml)
+
 A Scala 3 compiler plugin for **Scala Native** that rejects, at compile time, any GC heap allocation inside methods annotated with `@zeroAlloc`.
 
 ```scala

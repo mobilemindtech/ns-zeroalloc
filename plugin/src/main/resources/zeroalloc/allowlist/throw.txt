@@ -1,0 +1,13 @@
+# Accepted with -P:zeroalloc:allow-throw: these methods only allocate when
+# they throw.
+scala.Predef.require(boolean)
+scala.Predef.???
+scala.runtime.Scala3RunTime.assertFailed
+java.lang.Math.addExact
+java.lang.Math.subtractExact
+java.lang.Math.multiplyExact
+java.lang.Math.incrementExact
+java.lang.Math.decrementExact
+java.lang.Math.negateExact
+java.lang.Math.absExact
+java.lang.Math.toIntExact

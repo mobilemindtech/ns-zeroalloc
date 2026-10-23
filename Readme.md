@@ -1,167 +1,124 @@
 # zeroalloc
 
-A compile-time macro annotation for Scala 3 and Scala Native that strictly enforces **Zero Heap Allocation** within annotated methods.
-
----
-
-## 🛠️ Overview
-
-In systems programming, low-latency applications, and embedded target environments (e.g., Scala Native), heap allocations introduce garbage collection overhead and non-deterministic latency spikes.
-
-`@zeroAlloc` acts as a compile-time barrier. It inspects the Abstract Syntax Tree (AST) of annotated methods and fails the compilation if any code path allocates memory on the heap.
+A Scala 3 compiler plugin for **Scala Native** that rejects, at compile time, any GC heap allocation inside methods annotated with `@zeroAlloc`.
 
 ```scala
 import zeroalloc.*
-import scala.annotation.experimental
+import scala.scalanative.unsafe.*
 
-@experimental
 @zeroAlloc
-def processSignal(input: Int): Int = {
-  // ✅ OK: Primitive stack operations
-  val result = input * 2
-
-  // ❌ Compile Error: 'new' triggers heap allocation!
-  val person = new Person() 
-
-  result
+def checksum(buf: Ptr[Byte], len: Int): Int = {
+  var i = 0
+  var sum = 0
+  while (i < len) { sum = sum * 31 + buf(i); i += 1 }   // ✅ pointer access, primitives
+  sum
 }
+
+@zeroAlloc
+def describe(x: Int): String = s"value: $x"            // ❌ boxing / String building
 ```
+
+```
+[error] [zeroalloc] boxing a primitive allocates on the heap
+```
+
+In low-latency and systems code every GC allocation is a potential pause. `@zeroAlloc` turns "this method must not allocate" from a code-review convention into something the compiler checks, including allocations that are invisible in the source: boxing, closures, by-name arguments, varargs, captured `var`s and Scala Native's own boxes for `Ptr`, `UInt` and friends.
 
 ---
 
-## 🚀 Features
+## Installation
 
-* **Compile-Time Validation**: Catch heap allocations during compilation—zero runtime overhead.
-* **Heap Instantiation Checks**: Blocks direct `new` object creation.
-* **Case Class & Companion Method Guards**: Detects implicit heap allocations via factory methods (e.g., `User(...)`).
-* **String Context Protection**: Rejects heap-allocating string interpolations (e.g., `s"Value: $x"`).
-* **Escape Hatch (`unsafe`)**: Allows controlled local heap allocations when explicitly wrapped in `zeroalloc.unsafe { ... }`.
-* **Scala Native Friendly**: Fully compatible with Scala Native stack/primitive abstractions.
+The project has two artifacts:
+
+* **`zeroalloc`**, a tiny library with the `@zeroAlloc` annotation and the `unsafe { }` block.
+* **`zeroalloc-plugin`**, the compiler plugin that does the checking. It uses the compiler's internal API, so it is published for each full Scala version.
+
+```scala
+// sbt (Scala Native project)
+libraryDependencies += "br.com.mobilemind" %%% "zeroalloc" % "0.1.0"
+addCompilerPlugin("br.com.mobilemind" % "zeroalloc-plugin" % "0.1.0" cross CrossVersion.full)
+```
+
+```scala
+// scala-cli
+//> using platform scala-native
+//> using dep br.com.mobilemind::zeroalloc::0.1.0
+//> using plugin br.com.mobilemind:::zeroalloc-plugin:0.1.0
+```
+
+No `-experimental` flag is needed. Without the plugin, `@zeroAlloc` is an ordinary annotation and checks nothing.
+
+> **Release mode.** The guarantees assume a Scala Native release mode (`releaseFast`, `releaseSize` or `releaseFull`). In debug mode Scala Native does not run its optimizer, and pointer, struct and unsigned operations allocate. See [Scala Native boxes](docs/plugin.md#scala-native-boxes).
 
 ---
 
-## 📥 Installation
+## What is checked
 
-Add the dependency to your `build.sbt`:
+Inside a `@zeroAlloc` method the plugin rejects:
 
-```scala
-libraryDependencies += "br.com.mobilemind.zeroalloc" %%% "zeroalloc" % "0.1.0"
+| Construct | Example |
+|---|---|
+| Object creation | `new Foo`, `Foo(1)` (case class `apply`), `1 -> 2` |
+| Boxing | `val a: Any = 1`, `println(42)`, a generic call with a primitive |
+| Closures | lambdas, by-name arguments, SAM conversions, captured `var`s (`IntRef`) |
+| Varargs and array literals | `f(1, 2, 3)` with `xs: Int*` |
+| String building | `s"..."`, `"a" + x` |
+| A new `Ptr`/`UInt`/`CSize`/... leaving the method | `g(p + 1)`, `return p + 1`, `field = p + 1` |
+| Calls to code not known to be allocation-free | anything not covered by the rules below |
+| `==` on references | `a == b` calls `equals`; use `eq`/`ne`, or compare with `null` |
 
-// Required for Scala 3 MacroAnnotations
-scalacOptions += "-experimental"
+A call is accepted when the callee is:
 
-```
+* another `@zeroAlloc` method,
+* a primitive operation, array access, `eq`/`ne`, `isInstanceOf`/`asInstanceOf`,
+* a Scala Native operation (`Ptr`, `CStruct`, `CArray`, unsigned types, `stackalloc`, `sizeof`) or an `@extern` C function,
+* a library method in the [built-in allowlist](docs/allowlist.md) (`Math`, `Integer.bitCount`, `String.length`, atomics, `ByteBuffer.getInt`, ...),
+* a private or final method **of the same file** whose body passes the same checks (inferred, no annotation needed).
 
----
+Overrides of a `@zeroAlloc` method must be annotated too, since a virtual call can reach them.
 
-## 💡 Usage Examples
-
-### 1. Stack & Primitive Operations (Allowed ✅)
-
-Primitive calculations, passing value parameters, and calls to other `@zeroAlloc` methods pass validation.
-
-```scala
-import zeroalloc.*
-import scala.annotation.experimental
-
-@experimental
-@zeroAlloc
-def add(a: Int, b: Int): Int = a + b
-
-@experimental
-@zeroAlloc
-def compute(): Int = {
-  val x = 10
-  val y = 20
-  add(x, y) // ✅ Allowed: Calling another @zeroAlloc method
-}
-
-```
-
-### 2. String Literals vs. String Interpolation
-
-Static string literals are backed by the constant pool and do not allocate at runtime, whereas dynamic interpolations create `StringBuilder` or `StringContext` instances.
+## Escape hatch
 
 ```scala
-@experimental
 @zeroAlloc
-def stringHandling(): Unit = {
-  val staticStr = "Hello, World!" // ✅ Allowed: String Pool constant
-
-  val x = 42
-  val dynamicStr = s"Value: $x"  // ❌ Compile Error: String interpolation allocates on the Heap!
-}
-
-```
-
-### 3. Case Classes & Direct Object Creation
-
-Creating instances of classes or calling companion factory methods allocates memory on the heap.
-
-```scala
-class Person
-case class User(name: String)
-
-@experimental
-@zeroAlloc
-def createEntities(): Unit = {
-  val p = new Person() // ❌ Compile Error: Allocation detected with 'new Person'
-  val u = User("Alice") // ❌ Compile Error: Unsafe call to companion method 'apply'
-}
-
-```
-
-### 4. Bypassing Restrictions with `unsafe`
-
-When interacting with legacy APIs or performing one-off setup tasks where heap allocations are acceptable, wrap the allocating code inside `zeroalloc.unsafe`.
-
-```scala
-@experimental
-@zeroAlloc
-def processWithUnsafeEscape(): Int = {
-  val count = 100
-
-  // Temporarily bypass zero-allocation checks
+def process(x: Int): Int = {
   zeroalloc.unsafe {
-    println(s"Debug logging count: $count") // Heap allocation isolated here
-    val tempPerson = new Person()
+    println(s"debug: $x")   // not checked
   }
-
-  count * 2 // Back under strict zero-allocation enforcement
+  x * 2                     // checked
 }
-
 ```
 
+## Options
+
+Passed as `scalacOptions += "-P:zeroalloc:<option>"`:
+
+| Option | Effect |
+|---|---|
+| `allow-throw` | Accept allocations in `throw` expressions and in methods that only allocate when they throw (`require(cond)`, `Math.addExact`, ...). |
+| `strict-heap` | Also reject native heap allocation (`malloc`, `calloc`, `realloc`, ...). By default only GC allocations are rejected. |
+| `no-infer` | Do not infer same-file helpers: every callee must be `@zeroAlloc` or allowlisted. |
+| `allowlist:<path>` | Add the entries of an allowlist file ([format](docs/allowlist.md#file-format)). Can be repeated. |
+| `allow:<Owner>` | Accept every method of a class or object, e.g. `allow:com.acme.FastMath`. |
+| `debug` | Print the inline expansions the plugin sees. |
+
 ---
 
-## 🔍 How It Works
+## Documentation
 
-During macro expansion (`quotes.reflect`), the `@zeroAlloc` annotation traverses the method's `Definition`:
+* [docs/plugin.md](docs/plugin.md): how the plugin works, every rule in detail, Scala Native boxing, inference, limitations.
+* [docs/allowlist.md](docs/allowlist.md): the allowlist format, what is in the built-in list and what was left out and why, and how to verify it against the generated IR.
 
-1. **`Inlined` Nodes**: Checks if an inlined block originates from `zeroalloc.unsafe`. If so, subtree traversal is skipped.
-2. **`New` Term Inspection**: Aborts compilation if a `New(tpt)` AST node is encountered outside of an `unsafe` block.
-3. **`Apply` Method Checks**: Inspects target symbols. Rejects methods originating from `scala.StringContext` or functions not annotated with `@zeroAlloc`.
-
----
-
-## 🧪 Running Tests
-
-To run the test suite (powered by **MUnit**):
+## Development
 
 ```bash
-sbt "tests/test"
-
+sbt plugin/testFull        # plugin tests: compile snippets with Scala Native + the plugin
+sbt tests/test             # runtime tests on Scala Native, compiled with the plugin
+sbt conformance/nativeLink && \
+  python3 scripts/ir-allocs.py target/out/native0.5/scala-3.8.4/zeroalloc-conformance/native/generated '_SM\d+Conformance\$D(?!4main)'
+                           # checks in the optimized IR that accepted methods really do not allocate
 ```
 
-To run macro compilation assertions individually:
+## License
 
-```bash
-sbt "tests/testOnly zeroalloc.MacroCompileSuite"
-
-```
-
----
-
-## 📄 License
-
-This project is licensed under the [Apache 2.0 License](https://www.google.com/search?q=LICENSE).
+Apache 2.0, see [LICENSE](LICENSE).

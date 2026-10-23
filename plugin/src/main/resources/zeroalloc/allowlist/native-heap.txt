@@ -1,0 +1,11 @@
+# Allocate native (malloc) memory. Accepted by default, since that memory is
+# not managed by the GC; rejected with -P:zeroalloc:strict-heap.
+scala.scalanative.libc.stdlib.malloc
+scala.scalanative.libc.stdlib.calloc
+scala.scalanative.libc.stdlib.realloc
+scala.scalanative.libc.stdlib.aligned_alloc
+scala.scalanative.libc.stdio.fopen
+scala.scalanative.libc.stdio.tmpfile
+scala.scalanative.runtime.ffi.malloc
+scala.scalanative.runtime.ffi.calloc
+scala.scalanative.runtime.ffi.realloc

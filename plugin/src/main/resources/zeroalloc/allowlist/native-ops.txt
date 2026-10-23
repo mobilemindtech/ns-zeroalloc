@@ -1,0 +1,117 @@
+# Scala Native memory and unsigned operations.
+#
+# In NIR, Ptr, CArray, CStructN, Size and the unsigned types are heap
+# classes. Inside a method, Interflow (release mode) inlines these
+# operations and removes the boxes; a box is only allocated when a newly
+# created value leaves the method (argument of a call that is not inlined,
+# return value, field or array store). The plugin checks that boundary
+# separately, so the methods below are accepted and their arguments do not
+# count as escaping. In debug mode these operations DO allocate.
+
+scala.scalanative.runtime.Intrinsics.*
+scala.scalanative.runtime.Intrinsics$internal.*
+scala.scalanative.runtime.package.fromRawPtr
+scala.scalanative.runtime.package.toRawPtr
+scala.scalanative.runtime.package.fromRawSize
+scala.scalanative.runtime.package.fromRawUSize
+scala.scalanative.runtime.package.toRawSize
+
+scala.scalanative.unsafe.Ptr.*
+!scala.scalanative.unsafe.Ptr.toString
+scala.scalanative.unsafe.CArray.*
+!scala.scalanative.unsafe.CArray.toString
+scala.scalanative.unsafe.CStruct0.*
+scala.scalanative.unsafe.CStruct1.*
+scala.scalanative.unsafe.CStruct2.*
+scala.scalanative.unsafe.CStruct3.*
+scala.scalanative.unsafe.CStruct4.*
+scala.scalanative.unsafe.CStruct5.*
+scala.scalanative.unsafe.CStruct6.*
+scala.scalanative.unsafe.CStruct7.*
+scala.scalanative.unsafe.CStruct8.*
+scala.scalanative.unsafe.CStruct9.*
+scala.scalanative.unsafe.CStruct10.*
+scala.scalanative.unsafe.CStruct11.*
+scala.scalanative.unsafe.CStruct12.*
+scala.scalanative.unsafe.CStruct13.*
+scala.scalanative.unsafe.CStruct14.*
+scala.scalanative.unsafe.CStruct15.*
+scala.scalanative.unsafe.CStruct16.*
+scala.scalanative.unsafe.CStruct17.*
+scala.scalanative.unsafe.CStruct18.*
+scala.scalanative.unsafe.CStruct19.*
+scala.scalanative.unsafe.CStruct20.*
+scala.scalanative.unsafe.CStruct21.*
+scala.scalanative.unsafe.CStruct22.*
+!scala.scalanative.unsafe.CStruct0.toString
+!scala.scalanative.unsafe.CStruct1.toString
+!scala.scalanative.unsafe.CStruct2.toString
+!scala.scalanative.unsafe.CStruct3.toString
+!scala.scalanative.unsafe.CStruct4.toString
+!scala.scalanative.unsafe.CStruct5.toString
+!scala.scalanative.unsafe.CStruct6.toString
+!scala.scalanative.unsafe.CStruct7.toString
+!scala.scalanative.unsafe.CStruct8.toString
+!scala.scalanative.unsafe.CStruct9.toString
+!scala.scalanative.unsafe.CStruct10.toString
+!scala.scalanative.unsafe.CStruct11.toString
+!scala.scalanative.unsafe.CStruct12.toString
+!scala.scalanative.unsafe.CStruct13.toString
+!scala.scalanative.unsafe.CStruct14.toString
+!scala.scalanative.unsafe.CStruct15.toString
+!scala.scalanative.unsafe.CStruct16.toString
+!scala.scalanative.unsafe.CStruct17.toString
+!scala.scalanative.unsafe.CStruct18.toString
+!scala.scalanative.unsafe.CStruct19.toString
+!scala.scalanative.unsafe.CStruct20.toString
+!scala.scalanative.unsafe.CStruct21.toString
+!scala.scalanative.unsafe.CStruct22.toString
+
+# Tags are resolved per call; the instances are removed by Interflow.
+# Not listed: materializeCFuncPtr* and materializeClassTag.
+scala.scalanative.unsafe.Tag.materializeUnitTag
+scala.scalanative.unsafe.Tag.materializeBooleanTag
+scala.scalanative.unsafe.Tag.materializeCharTag
+scala.scalanative.unsafe.Tag.materializeByteTag
+scala.scalanative.unsafe.Tag.materializeUByteTag
+scala.scalanative.unsafe.Tag.materializeShortTag
+scala.scalanative.unsafe.Tag.materializeUShortTag
+scala.scalanative.unsafe.Tag.materializeIntTag
+scala.scalanative.unsafe.Tag.materializeUIntTag
+scala.scalanative.unsafe.Tag.materializeLongTag
+scala.scalanative.unsafe.Tag.materializeULongTag
+scala.scalanative.unsafe.Tag.materializeFloatTag
+scala.scalanative.unsafe.Tag.materializeDoubleTag
+scala.scalanative.unsafe.Tag.materializeSizeTag
+scala.scalanative.unsafe.Tag.materializeUSizeTag
+scala.scalanative.unsafe.Tag.materializePtrTag
+scala.scalanative.unsafe.Tag.materializeCArrayTag
+scala.scalanative.unsafe.Tag.materializeCStruct*
+scala.scalanative.unsafe.Tag.materializeNat*
+
+scala.scalanative.unsafe.Size.*
+scala.scalanative.unsigned.UByte.*
+scala.scalanative.unsigned.UShort.*
+scala.scalanative.unsigned.UInt.*
+scala.scalanative.unsigned.ULong.*
+scala.scalanative.unsigned.USize.*
+!scala.scalanative.unsafe.Size.to*String
+!scala.scalanative.unsigned.UByte.to*String
+!scala.scalanative.unsigned.UShort.to*String
+!scala.scalanative.unsigned.UInt.to*String
+!scala.scalanative.unsigned.ULong.to*String
+!scala.scalanative.unsigned.USize.to*String
+
+# Implicit conversions (value classes) and the package helpers.
+scala.scalanative.unsafe.package.UnsafeRich*
+scala.scalanative.unsafe.package$UnsafeRichByte.*
+scala.scalanative.unsafe.package$UnsafeRichShort.*
+scala.scalanative.unsafe.package$UnsafeRichInt.*
+scala.scalanative.unsafe.package$UnsafeRichLong.*
+scala.scalanative.unsafe.package$UnsafeRichArray.*
+scala.scalanative.unsafe.package.tagof
+scala.scalanative.unsigned.package.UnsignedRich*
+scala.scalanative.unsigned.package$UnsignedRichByte.*
+scala.scalanative.unsigned.package$UnsignedRichShort.*
+scala.scalanative.unsigned.package$UnsignedRichInt.*
+scala.scalanative.unsigned.package$UnsignedRichLong.*
